@@ -1,18 +1,33 @@
 using TerminalWidgets
 
 let
-    app = App()
-    on(app, :quit, app::App->exit(); key="q")
-    label = Label("Hello, World"; background=BLUE, foreground=WHITE, width=20, align=ALIGN_CENTER)
-    add(app, label, 5, 5)
-    button1 = Button("The winner takes it all!", button::Button->error("My mistake!"); background=BLACK, foreground=RED)
-    add(app, button1, 8, 10)
-    button2 = Button("The loser gets nothing!", button::Button->exit())
-    on(button1, :next, button::Button->change_focus(button, button2); key=KEY_TAB)
-    on(button2, :next, button::Button->change_focus(button, button1); key=KEY_TAB)
-    add(app, button2, 12, 10)
+    init()
+    on(:quit; key="q") do
+        exit()
+    end
+    label = Label("Hello, World"; width=20, align=ALIGN_CENTER)
+    add(label, 5, 5)
+    button1 = Button("The winner takes it all!"; foreground=RED) do
+        error("My Mistake!")
+    end
+    add(button1, 8, 10)
+    button2 = Button("The loser gets nothing!") do
+        exit()  
+    end 
+    add(button2, 12, 10)
+    checkbox = CheckBox("Check me!")
+    add(checkbox, 3, 20)
+    on(button1, :next; key=KEY_TAB) do
+        focus(button2)
+    end
+    on(button2, :next; key=KEY_TAB) do
+        focus(checkbox)
+    end
+    on(checkbox, :next; key=KEY_TAB) do
+        focus(button1)
+    end
     try
-        run(app)
+        run()
     catch err
         print(stdout, "\e[?1049l")
         rethrow()

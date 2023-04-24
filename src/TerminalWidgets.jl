@@ -9,58 +9,46 @@ export BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE
 export BRIGHT_BLACK, BRIGHT_RED, BRIGHT_GREEN, BRIGHT_YELLOW, BRIGHT_BLUE, BRIGHT_MAGENTA, BRIGHT_CYAN, BRIGHT_WHITE
 export LIGHT, ROUNDED, HEAVY, DOUBLE
 export Style, Color, Color256, ColorRGB
-export App, Label, Button
-export run, add, on, change_focus
+export Widget, Label, Button, CheckBox
+export init, run, add, on, focus
 
 abstract type Widget end
 abstract type FocusableWidget <: Widget end
 abstract type EditableWidget <: FocusableWidget end
 
-mutable struct BaseWidget
-    parent::Union{Widget, Nothing}
+struct BaseWidget
+    parent::Ref{Widget}
     childs::Vector{Widget}
     signals::Dict{Symbol, Function}
     keys::Dict{String, Symbol}
-    focus::Union{FocusableWidget, Nothing}
-    row::Int
-    col::Int
+    row::Ref{Int}
+    col::Ref{Int}
     height::Int
     width::Int
     background::Color
     foreground::Color
-    function BaseWidget(;row::Integer=1,
+    function BaseWidget(; row::Integer=1,
         col::Integer=1,
         height::Integer=1,
         width::Integer=1,
-        background::Color=BLACK,
+        background::Color=BLACK, 
         foreground::Color=GREEN
     )
-        new(nothing, Vector{Widget}(), Dict{Symbol, Function}(), Dict{String, Symbol}(), nothing, row, col, height, width, background, foreground)
+        new(Ref{Widget}(), Vector{Widget}(), Dict{Symbol, Function}(), Dict{String, Symbol}(), Ref{Int}(row), Ref{Int}(col), height, width, background, foreground)
     end
 end
 
-function signal(widget::Widget, sig::Symbol)
-    handler = get(widget.w.signals, sig, widget::Widget->false)
+function emit(widget::Widget, sig::Symbol)
+    handler = get(widget.w.signals, sig, nothing)
+    if handler === nothing
+        return false
+    end
     handler(widget)
+    true
 end
 
-function change_focus(from::FocusableWidget, to::FocusableWidget)
-    parent = from.w.parent
-    while parent.w.parent !== nothing
-        parent.w.focus = nothing
-        parent = parent.w.parent
-    end
-    child = to
-    parent = to.w.parent
-    while parent.w.parent !== nothing
-        parent.w.focus = child
-        child = parent
-        parent = child.w.parent
-    end
-    parent.w.focus = child
-    redraw(from, false)
-    redraw(to, true)
-    true
+function focus(to::FocusableWidget)
+    APP[].focus[] = to
 end
 
 struct Align
@@ -77,8 +65,8 @@ struct Label <: Widget
     function Label(str::String;
         width::Integer=length(str),
         align::Align=ALIGN_LEFT,
-        background::Color=BLACK,
-        foreground::Color=GREEN
+        background::Color=APP[].w.background,
+        foreground::Color=APP[].w.foreground
     )
         if width < length(str)
             width = length(str)
@@ -91,7 +79,7 @@ struct Label <: Widget
 end
 
 function redraw(label::Label)
-    screen_string(label.str, label.w.row, label.w.col;
+    screen_string(label.str, label.w.row[], label.w.col[];
         style=Style(;background=label.w.background, foreground=label.w.foreground))
     nothing
 end
@@ -111,12 +99,12 @@ end
 struct Button <: FocusableWidget
     w::BaseWidget
     str::String
-    function Button(str::String, handler::Function;
+    function Button(handler::Function, str::String;
         height::Integer=3,
         width::Integer=length(str),
         align::Align=ALIGN_CENTER,
-        background::Color=BLACK,
-        foreground::Color=GREEN
+        background::Color=APP[].w.background, 
+        foreground::Color=APP[].w.foreground
     )
         if width < length(str) + 1
             width = length(str) + 2
@@ -124,31 +112,83 @@ struct Button <: FocusableWidget
             str = align(str, width-2, align)
         end
         w = BaseWidget(;height, width, background, foreground)
-        w.signals[:click] = handler
+        w.signals[:click] = _::Button -> handler()
         w.keys["\r"] = :click
         new(w, str)
     end
 end
 
-function redraw(button::Button, focus::Bool)
-    screen_box(button.w.row, button.w.col, button.w.height, button.w.width;
-        type=BORDER_ROUNDED, style=Style(;bold=focus, background=button.w.background, foreground=button.w.foreground))
-    screen_string(button.str, button.w.row+1, button.w.col+1;
-        style=Style(;bold=focus, background=button.w.background, foreground=button.w.foreground))
+function redraw(button::Button)
+    screen_box(button.w.row[], button.w.col[], button.w.height, button.w.width;
+        type=BORDER_ROUNDED, style=Style(;bold=has_focus(button), background=button.w.background, foreground=button.w.foreground))
+    screen_string(button.str, button.w.row[]+1, button.w.col[]+1;
+        style=Style(;bold=has_focus(button), background=button.w.background, foreground=button.w.foreground))
+    nothing
 end
 
 function handle_mouse(button::Button, row::Integer, col::Integer)
-    signal(button, :click)
+    emit(button, :click)
+    nothing
 end
 
-struct App <: FocusableWidget
+struct CheckBox <: EditableWidget
     w::BaseWidget
-    function App(; char::Char=' ', background::Color=BLACK, foreground::Color=GREEN)
-        screen_init(;char, background, foreground)
-        height, width = screen_size()
-        w = BaseWidget(;height, width, background, foreground)
-        new(w)
+    v::Ref{Bool}
+    str::String
+    function CheckBox(str::String="", v::Bool=false;
+        width::Integer=length(str)+2,
+        background::Color=APP[].w.background, 
+        foreground::Color=APP[].w.foreground
+    )
+        str = ' ' * str
+        if width < length(str) + 2
+            width = length(str) + 2
+        elseif width > length(str) + 2
+            str = align(str, width-1, ALIGN_LEFT)
+        end
+        w = BaseWidget(;width, background, foreground)
+        w.signals[:click] = toggle
+        w.keys["\r"] = :click
+        new(w, Ref{Bool}(v), str)
     end
+end
+
+function toggle(checkbox::CheckBox)
+    checkbox.v[] = ! checkbox.v[]
+end
+
+function redraw(checkbox::CheckBox)
+    screen_string((checkbox.v[] ? '✓' : '⬚') * checkbox.str, checkbox.w.row[], checkbox.w.col[]; 
+        style=Style(;bold=has_focus(checkbox), background=checkbox.w.background, foreground=checkbox.w.foreground)
+    )
+    nothing
+end
+
+function handle_mouse(checkbox::CheckBox, row::Integer, col::Integer)
+    emit(checkbox, :click)
+    nothing
+end
+
+struct App <: Widget
+    w::BaseWidget
+    focus::Ref{FocusableWidget}
+    function App(w::BaseWidget)
+        new(w, Ref{FocusableWidget}())
+    end
+end
+
+const APP = Ref{App}()
+
+function init(; char::Char=' ', background::Color=BLACK, foreground::Color=GREEN)
+    screen_init(; char, background, foreground)
+    height, width = screen_size()
+    w = BaseWidget(;height, width, background, foreground)
+    APP[] = App(w)
+    nothing
+end
+
+function has_focus(widget::FocusableWidget)
+    APP[].focus[] === widget
 end
 
 function Base.size(widget::Widget, dim::Int=0)
@@ -162,68 +202,67 @@ function Base.size(widget::Widget, dim::Int=0)
 end
 
 function add(parent::Widget, child::Widget, row::Integer, col::Integer)
-    push!(parent.w.childs, child)
-    child.w.row = row + parent.w.row - 1
-    child.w.col = col + parent.w.col - 1
-    child.w.parent = parent
-    if parent.w.focus === nothing && child isa FocusableWidget
-        parent.w.focus = child
+    app = APP[]
+    if !isassigned(app.focus) && child isa FocusableWidget
+        app.focus[] = child
     end
+    push!(parent.w.childs, child)
+    child.w.row[] = row + parent.w.row[] - 1
+    child.w.col[] = col + parent.w.col[] - 1
+    child.w.parent[] = parent
     nothing
 end
 
-function on(widget::Widget, signal::Symbol, handler::Function; key::String="")
-    widget.w.signals[signal] = handler
+function add(child::Widget, row::Integer, col::Integer)
+    add(APP[], child, row, col)
+end
+
+function on(handler::Function, widget::Widget, signal::Symbol; key::String="")
+    widget.w.signals[signal] = _::Widget -> handler()
     if key !== ""
         widget.w.keys[key] = signal
     end
     nothing
 end
 
+function on(handler::Function, signal::Symbol; key::String="")
+    on(handler, APP[], signal; key)
+end
+
 function redraw(widget::Widget)
-    screen_box_clear(widget.w.row, widget.w.col, widget.w.height, widget.w.width)
+    screen_box_clear(widget.w.row[], widget.w.col[], widget.w.height, widget.w.width)
     for child in widget.w.childs
-        if child isa FocusableWidget
-            redraw(child, child === widget.w.focus)
-        else
-            redraw(child)
-        end
+        redraw(child)
     end
     nothing
 end
 
 function inside(widget::Widget, row, col)
-    widget.w.row <= row < widget.w.row + widget.w.height &&
-    widget.w.col <= col < widget.w.col + widget.w.width
+    widget.w.row[] <= row < widget.w.row[] + widget.w.height &&
+    widget.w.col[] <= col < widget.w.col[] + widget.w.width
 end
 
-function handle_mouse(widget::FocusableWidget, row::Integer, col::Integer)
-    focus = widget.w.focus
+function handle_mouse(widget::Widget, row::Integer, col::Integer)
     for child in widget.w.childs
-        if child isa FocusableWidget
-            if inside(child, row, col)
-                widget.w.focus = child
-                redraw(child, true)
-                handle_mouse(child, row, col)
-            elseif child === focus
-                redraw(child, false)
-            end
+        if inside(child, row, col)
+            handle_mouse(child, row, col)
         end
     end
     nothing
 end
 
-function handle_key(widget::FocusableWidget, input::String)
-    if widget.w.focus !== nothing && handle_key(widget.w.focus, input)
-        return true
-    end
+function handle_key(widget::Widget, input::String)
     sig = get(widget.w.keys, input, :nothing)
-    signal(widget, sig)
+    if !emit(widget, sig) && widget !== APP[]
+        handle_key(widget.w.parent[], input)
+    end
+    nothing
 end
 
-function Base.run(app::App)
-    redraw(app)
+function Base.run()
+    app = APP[]
     while true
+        redraw(app)
         screen_refresh()
         input = screen_input()
         if startswith(input, "\e[M ")
@@ -232,7 +271,7 @@ function Base.run(app::App)
             col = Int(mouse[1]) - 32
             handle_mouse(app, row, col)
         else
-            handle_key(app, input)
+            handle_key(app.focus[], input)
         end
     end
 end
