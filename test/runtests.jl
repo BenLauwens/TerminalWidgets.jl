@@ -12,15 +12,25 @@ let
     end
     add(button1, 8, 10)
     button2 = Button("The loser gets nothing!") do
-        exit()  
-    end 
+        exit()
+    end
     add(button2, 12, 10)
     checkbox = CheckBox("Check me!")
     add(checkbox, 3, 20)
+    multi = MultiSelect(["A", "B", "C", "D"])
+    add(multi, 5, 50)
+    radio = RadioGroup(["E", "F", "G", "H"])
+    add(radio, 11, 50)
     on(button1, :next; key=KEY_TAB) do
         focus(button2)
     end
     on(button2, :next; key=KEY_TAB) do
+        focus(multi)
+    end
+    on(multi, :next; key=KEY_TAB) do
+        focus(radio)
+    end
+    on(radio, :next; key=KEY_TAB) do
         focus(checkbox)
     end
     on(checkbox, :next; key=KEY_TAB) do
