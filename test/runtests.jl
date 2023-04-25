@@ -6,11 +6,11 @@ let
         exit()
     end
     label = Label("Hello, World"; width=20, align=ALIGN_CENTER)
-    add(label, 5, 5)
-    button1 = Button("The winner takes it all!"; foreground=RED) do
+    add(label, 1, 1)
+    button1 = Button("The winner takes it all!"; foreground=COLOR_RED) do
         error("My Mistake!")
     end
-    add(button1, 8, 10)
+    add(button1, 8, 1)
     button2 = Button("The loser gets nothing!") do
         exit()
     end
