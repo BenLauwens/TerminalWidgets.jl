@@ -21,6 +21,8 @@ let
     add(multi, 5, 50)
     radio = RadioGroup(["E", "F", "G", "H"])
     add(radio, 11, 50)
+    text = TextBox("Dit is een natuurvoorbeeld van een te splitsen tekst.\nIk weet niet hoe goed dit kan gebeuren met dit programma!\n\n  Hoera"; width=14, height=13)
+    add(text, 2, 75)
     on(button1, :next; key=KEY_TAB) do
         focus(button2)
     end
@@ -31,6 +33,9 @@ let
         focus(radio)
     end
     on(radio, :next; key=KEY_TAB) do
+        focus(text)
+    end
+    on(text, :next; key=KEY_TAB) do
         focus(checkbox)
     end
     on(checkbox, :next; key=KEY_TAB) do

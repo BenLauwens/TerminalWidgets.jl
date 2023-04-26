@@ -95,7 +95,8 @@ function redraw(multi::MultiSelect)
 end
 
 function focus(multi::MultiSelect)
-    APP[].focus[] = multi.w.childs[1]
+    focus(multi.w.childs[1])
+    nothing
 end
 
 function value(multi::MultiSelect)

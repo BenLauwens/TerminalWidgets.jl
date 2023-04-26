@@ -29,7 +29,10 @@ end
 
 function select(radiobutton::RadioButton)
     for button in radiobutton.w.parent[].w.childs
-        button.v[] = false
+        if button !== radiobutton && button.v[]
+            button.v[] = false
+            redraw(button)
+        end
     end
     radiobutton.v[] = true
     focus(radiobutton)
@@ -98,7 +101,8 @@ function redraw(radiogroup::RadioGroup)
 end
 
 function focus(radiogroup::RadioGroup)
-    APP[].focus[] = radiogroup.w.childs[value(radiogroup)]
+    focus(radiogroup.w.childs[value(radiogroup)])
+    nothing
 end
 
 function value(radiogroup::RadioGroup)

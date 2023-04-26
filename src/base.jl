@@ -114,17 +114,21 @@ function col(widget::Widget)
     widget.w.col[] + col(widget.w.parent[]) - 1
 end
 
-function emit(widget::Widget, sig::Symbol)
+function emit(widget::Widget, sig::Symbol, args...)
     handler = get(widget.w.signals, sig, nothing)
     if handler === nothing
         return false
     end
-    handler(widget)
+    handler(widget, args...)
     true
 end
 
 function focus(to::FocusableWidget)
+    focus = APP[].focus[]
     APP[].focus[] = to
+    redraw(focus)
+    redraw(to)
+    nothing
 end
 
 function has_focus(widget::FocusableWidget)

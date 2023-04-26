@@ -1,8 +1,10 @@
 struct App <: Widget
     w::TopWidgetInternal
     focus::Ref{FocusableWidget}
+    x::Ref{Int}
+    y::Ref{Int}
     function App(w::TopWidgetInternal)
-        new(w, Ref{FocusableWidget}())
+        new(w, Ref{FocusableWidget}(), Ref{Int}(0), Ref{Int}(0))
     end
 end
 
@@ -15,6 +17,13 @@ function col(app::App)
 end
 
 const APP = Ref{App}()
+
+function cursor(y::Integer=0, x::Integer=0)
+    app = APP[]
+    app.y[] = y
+    app.x[] = x
+    nothing
+end
 
 function add(child::Widget, row::Integer, col::Integer)
     add(APP[], child, row, col)
@@ -33,9 +42,9 @@ end
 
 function Base.run()
     app = APP[]
+    redraw(app)
     while true
-        redraw(app)
-        screen_refresh()
+        screen_refresh(app.y[], app.x[])
         input = screen_input()
         if startswith(input, "\e[M ")
             mouse = transcode(UInt8, input[5:6])
