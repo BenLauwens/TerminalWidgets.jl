@@ -35,7 +35,10 @@ function handle_key(text::TextBox, input::String)
             height -= 2
             width -= 2
             index = (text.y[] - 1) * width + text.x[]
-            insert!(text.v, index, ' ')
+            insert!(text.v, index, char)
+            index += 1
+            char = text.v[index]
+            text.v[index] = ' '
             str = vector2string(text.v)
             empty!(text.v)
             append!(text.v, string2vector(str, height, width))
@@ -43,7 +46,7 @@ function handle_key(text::TextBox, input::String)
             text.v[index] = char
             y, x = divrem(index - 1, width)
             text.y[] = y + 1
-            text.x[] = x + 2
+            text.x[] = x + 1
             if text.x[] > width
                 if text.y[] < height
                     text.x[] = 1
