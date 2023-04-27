@@ -38,11 +38,23 @@ function handle_key(text::TextBox, input::String)
             insert!(text.v, index, char)
             index += 1
             char = text.v[index]
-            text.v[index] = ' '
+            if char === '⮐'
+                text.v[index] = '⏎'
+            elseif char === '␣'
+                text.v[index] = ' '
+            else
+                text.v[index] = '█'
+            end
             str = vector2string(text.v)
             empty!(text.v)
             append!(text.v, string2vector(str, height, width))
-            index = findfirst(isequal(' '), text.v)
+            if char === '⮐'
+                index = findfirst(isequal('⏎'), text.v)
+            elseif char === '␣'
+                index = findfirst(isequal(' '), text.v)
+            else
+                index = findfirst(isequal('█'), text.v)
+            end
             text.v[index] = char
             y, x = divrem(index - 1, width)
             text.y[] = y + 1
