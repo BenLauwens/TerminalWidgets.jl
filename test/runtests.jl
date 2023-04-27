@@ -1,4 +1,6 @@
 using TerminalWidgets
+using TerminalBase
+using REPL
 
 let
     init()
@@ -44,7 +46,11 @@ let
     try
         run()
     catch err
-        print(stdout, "\e[?1049l")
+        terminal = TerminalBase.SCREEN[].terminal
+        print(terminal, TerminalBase.TerminalCommand("?1000l"))
+        print(terminal, TerminalBase.TerminalCommand("?25h"))
+        print(terminal, TerminalBase.TerminalCommand("?1049l"))
+        REPL.Terminals.raw!(terminal, false)
         rethrow()
     end
 end

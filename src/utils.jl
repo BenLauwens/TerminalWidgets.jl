@@ -23,6 +23,7 @@ function string2vector(str::String, height::Integer, width::Integer)
     col = 1
     for phrase in eachsplit(str, '\n')
         for word in eachsplit(phrase, ' ')
+            word = collect(word)
             if col === width
                 push!(v, ' ')
                 col = 1
