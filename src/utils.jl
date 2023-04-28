@@ -18,6 +18,25 @@ function align_string(str::String, width::Integer, align::Align)
     end
 end
 
+function cursor2index(y::Integer, x::Integer, width::Integer)
+    (y - 1) * width + x
+end
+
+function index2cursor(index::Integer, height::Integer, width::Integer)
+    y, x = divrem(index - 1, width)
+    y = y + 1
+    x = x + 1
+    if x > width
+        if y < height
+            x = 1
+            y += 1
+        else
+            x -= 1
+        end
+    end
+    y, x
+end
+
 function word2vector(word::SubString{String}, v::Vector, width::Integer, col::Integer, spacekey::Char='␣')
     word = collect(word)
     if col === width
@@ -43,7 +62,6 @@ function word2vector(word::SubString{String}, v::Vector, width::Integer, col::In
     col += len + 1
 end
 
-
 function phrase2vector(phrase::SubString{String}, v::Vector, width::Integer, enterkey::Char='⮐')
     col = 1
     for word in eachsplit(phrase, ' ')
@@ -67,12 +85,20 @@ function string2vector(str::String, height::Integer, width::Integer)
         phrase2vector(phrase, v, width)
     end
     if length(v) < height * width
-        push!(v, ' '^(height * width)...)
+        push!(v, ' '^(height * width - length(v))...)
     end
     v
 end
 
 function vector2string(v::Vector{Char})
     v = replace(filter(!isequal(' '), v), '⮐' => '\n', '␣' => ' ')
+    index = findfirst(isequal('⌫'), v)
+    if index !== nothing
+        if index === 1
+            deleteat!(v, index)
+        else
+            deleteat!(v, index-1:index)
+        end
+    end
     join(v)
 end

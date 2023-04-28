@@ -12,7 +12,40 @@ struct TextBox <: EditableWidget
         w = ElementaryWidgetInternal(; width=width+2, height=height+2, background, foreground)
         w.signals[:click] = focus
         v = string2vector(str, height, width)
-        new(w, v, Ref{Int}(1), Ref{Int}(1))
+        text = new(w, v, Ref{Int}(1), Ref{Int}(1))
+        on(text, :up; key=KEY_UP) do
+            index = cursor2index(text.y[], text.x[], width)
+            index = findprev(!isequal(' '), text.v, index - width)
+            if index !== nothing  && index >= 1
+                text.y[], text.x[] = index2cursor(index, height, width)
+                redraw(text)
+            end
+        end
+        on(text, :down; key=KEY_DOWN) do
+            index = cursor2index(text.y[], text.x[], width)
+            index = findprev(!isequal(' '), text.v, index + width)
+            if index !== nothing  && index <= width * height
+                text.y[], text.x[] = index2cursor(index, height, width)
+                redraw(text)
+            end
+        end
+        on(text, :left; key=KEY_LEFT) do
+            index = cursor2index(text.y[], text.x[], width)
+            index = findprev(!isequal(' '), text.v, index - 1)
+            if index !== nothing && index >= 1
+                text.y[], text.x[] = index2cursor(index, height, width)
+                redraw(text)
+            end
+        end
+        on(text, :right; key=KEY_RIGHT) do
+            index = cursor2index(text.y[], text.x[], width)
+            index = findnext(!isequal(' '), text.v, index + 1)
+            if index !== nothing && index <= width * height
+                text.y[], text.x[] = index2cursor(index, height, width)
+                redraw(text)
+            end
+        end
+        text
     end
 end
 
@@ -24,54 +57,55 @@ end
 function handle_key(text::TextBox, input::String)
     sig = get(text.w.keys, input, :nothing)
     if !emit(text, sig)
-        char = input[begin]
-        if char === ' '
-            char = '␣'
-        elseif char === '\r'
-            char = '⮐'
-        end
-        if length(input) === 1 && !iscntrl(char)
-            height, width = size(text)
-            height -= 2
-            width -= 2
-            index = (text.y[] - 1) * width + text.x[]
-            insert!(text.v, index, char)
-            index += 1
-            char = text.v[index]
-            if char === '⮐'
-                text.v[index] = '⏎'
-            elseif char === '␣'
-                text.v[index] = ' '
-            else
-                text.v[index] = '█'
-            end
-            str = vector2string(text.v)
-            empty!(text.v)
-            append!(text.v, string2vector(str, height, width))
-            if char === '⮐'
-                index = findfirst(isequal('⏎'), text.v)
-            elseif char === '␣'
-                index = findfirst(isequal(' '), text.v)
-            else
-                index = findfirst(isequal('█'), text.v)
-            end
-            text.v[index] = char
-            y, x = divrem(index - 1, width)
-            text.y[] = y + 1
-            text.x[] = x + 1
-            if text.x[] > width
-                if text.y[] < height
-                    text.x[] = 1
-                    text.y[] += 1
-                else
-                    text.x[] -= 1
-                end
-            end
-            redraw(text)
+        if length(input) === 1
+            normal_key(text, input[begin])
         elseif text !== APP[]
             handle_key(text.w.parent[], input)
         end
     end
+    nothing
+end
+
+function normal_key(text::TextBox, char::Char)
+    if char === ' '
+        char = '␣'
+    elseif char === '\r'
+        char = '⮐'
+    elseif char === '\x7f'
+        char = '⌫'
+    elseif iscntrl(char)
+        return
+    end
+    width = size(text, 2) - 2
+    index = cursor2index(text.y[], text.x[], width)
+    insert!(text.v, index, char)
+    process(text, index + 1)
+    redraw(text)
+    nothing
+end
+
+function process(text::TextBox, index::Integer)
+    height, width = size(text)
+    char = text.v[index]
+    if char === '⮐'
+        text.v[index] = '⏎'
+    elseif char === '␣'
+        text.v[index] = ' '
+    else
+        text.v[index] = '█'
+    end
+    str = vector2string(text.v)
+    empty!(text.v)
+    append!(text.v, string2vector(str, height - 2, width - 2))
+    index = if char === '⮐'
+        findfirst(isequal('⏎'), text.v)
+    elseif char === '␣'
+        findfirst(isequal(' '), text.v)
+    else
+        findfirst(isequal('█'), text.v)
+    end
+    text.v[index] = char
+    text.y[], text.x[] = index2cursor(index, height - 2, width - 2)
     nothing
 end
 
@@ -81,7 +115,7 @@ function focus(text::TextBox, y::Integer, x::Integer)
     x -= col(text)
     if 1 <= y < height - 1 && 1 <= x < width - 1
         index = (y - 1) * (width - 2)
-        x = findprev(!isequal(' '), text.v[index + 1:index + (width-2)], x)
+        x = findprev(!isequal(' '), text.v[index + 1:index + (width - 2)], x)
         if x !== nothing
             text.y[] = y
             text.x[] = x
