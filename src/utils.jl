@@ -81,8 +81,13 @@ function string2vector(str::String, height::Integer, width::Integer)
         if '⏎' ∈ phrase
             special, phrase = split(phrase, '⏎')
             phrase2vector(special, v, width, '⏎')
+            if !isempty(phrase)
+                phrase2vector(phrase, v, width)
+            end
+        else
+            phrase2vector(phrase, v, width)
         end
-        phrase2vector(phrase, v, width)
+
     end
     if length(v) < height * width
         push!(v, ' '^(height * width - length(v))...)
@@ -100,5 +105,14 @@ function vector2string(v::Vector{Char})
             deleteat!(v, index-1:index)
         end
     end
-    join(v)
+    index = findfirst(isequal('␡'), v)
+    if index !== nothing
+        if index === length(v)
+            deleteat!(v, index)
+        else
+            deleteat!(v, index:index+1)
+        end
+    end
+
+    string(rstrip(join(v), '\n'))
 end

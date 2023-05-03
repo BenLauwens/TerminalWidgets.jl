@@ -14,9 +14,9 @@ struct Button <: FocusableWidget
             str = align(str, width - 2, align)
         end
         w = ElementaryWidgetInternal(; height, width, background, foreground)
-        w.signals[:click] = _::Button -> handler()
-        w.keys["\r"] = :click
-        new(w, str)
+        button = new(w, str)
+        on(_::Button -> handler(), button, :click; key="\r")
+        button
     end
 end
 

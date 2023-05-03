@@ -6,21 +6,21 @@ abstract type WidgetInternal end
 
 struct TopWidgetInternal <: WidgetInternal
     childs::Vector{Widget}
-    signals::Dict{Symbol,Function}
+    signals::Dict{Symbol,Vector{Function}}
     keys::Dict{String,Symbol}
     background::Color
     foreground::Color
     function TopWidgetInternal(; background::Color=COLOR_BLACK,
         foreground::Color=COLOR_GREEN
     )
-        new(Vector{Widget}(), Dict{Symbol,Function}(), Dict{String,Symbol}(), background, foreground)
+        new(Vector{Widget}(), Dict{Symbol,Vector{Function}}(), Dict{String,Symbol}(), background, foreground)
     end
 end
 
 struct HorizontalContainerWidgetInternal <: WidgetInternal
     parent::Ref{Widget}
     childs::Vector{Widget}
-    signals::Dict{Symbol,Function}
+    signals::Dict{Symbol,Vector{Function}}
     keys::Dict{String,Symbol}
     row::Ref{Int}
     col::Ref{Int}
@@ -31,14 +31,14 @@ struct HorizontalContainerWidgetInternal <: WidgetInternal
         background::Color=COLOR_BLACK,
         foreground::Color=COLOR_GREEN
     )
-        new(Ref{Widget}(), Vector{Widget}(), Dict{Symbol,Function}(), Dict{String,Symbol}(), Ref{Int}(row), Ref{Int}(col), background, foreground)
+        new(Ref{Widget}(), Vector{Widget}(), Dict{Symbol,Vector{Function}}(), Dict{String,Symbol}(), Ref{Int}(row), Ref{Int}(col), background, foreground)
     end
 end
 
 struct VerticalContainerWidgetInternal <: WidgetInternal
     parent::Ref{Widget}
     childs::Vector{Widget}
-    signals::Dict{Symbol,Function}
+    signals::Dict{Symbol,Vector{Function}}
     keys::Dict{String,Symbol}
     row::Ref{Int}
     col::Ref{Int}
@@ -49,13 +49,13 @@ struct VerticalContainerWidgetInternal <: WidgetInternal
         background::Color=COLOR_BLACK,
         foreground::Color=COLOR_GREEN
     )
-        new(Ref{Widget}(), Vector{Widget}(), Dict{Symbol,Function}(), Dict{String,Symbol}(), Ref{Int}(row), Ref{Int}(col), background, foreground)
+        new(Ref{Widget}(), Vector{Widget}(), Dict{Symbol,Vector{Function}}(), Dict{String,Symbol}(), Ref{Int}(row), Ref{Int}(col), background, foreground)
     end
 end
 
 struct ElementaryWidgetInternal <: WidgetInternal
     parent::Ref{Widget}
-    signals::Dict{Symbol,Function}
+    signals::Dict{Symbol,Vector{Function}}
     keys::Dict{String,Symbol}
     row::Ref{Int}
     col::Ref{Int}
@@ -70,15 +70,15 @@ struct ElementaryWidgetInternal <: WidgetInternal
         background::Color=COLOR_BLACK,
         foreground::Color=COLOR_GREEN
     )
-        new(Ref{Widget}(), Dict{Symbol,Function}(), Dict{String,Symbol}(), Ref{Int}(row), Ref{Int}(col), height, width, background, foreground)
+        new(Ref{Widget}(), Dict{Symbol,Vector{Function}}(), Dict{String,Symbol}(), Ref{Int}(row), Ref{Int}(col), height, width, background, foreground)
     end
 end
 
-function width(wi::TopWidgetInternal)
+function width(_::TopWidgetInternal)
     screen_size()[2]
 end
 
-function height(wi::TopWidgetInternal)
+function height(_::TopWidgetInternal)
     screen_size()[1]
 end
 
@@ -115,11 +115,13 @@ function col(widget::Widget)
 end
 
 function emit(widget::Widget, sig::Symbol, args...)
-    handler = get(widget.w.signals, sig, nothing)
-    if handler === nothing
+    handlers = get(widget.w.signals, sig, nothing)
+    if handlers === nothing
         return false
     end
-    handler(widget, args...)
+    for handler in handlers
+        handler(widget, args...)
+    end
     true
 end
 
@@ -158,7 +160,8 @@ function add(parent::Widget, child::Widget, row::Integer, col::Integer)
 end
 
 function on(handler::Function, widget::Widget, signal::Symbol; key::String="")
-    widget.w.signals[signal] = _::Widget -> handler()
+    handlers = get!(widget.w.signals, signal, Vector{Function}())
+    push!(handlers, handler)
     if key !== ""
         widget.w.keys[key] = signal
     end
@@ -181,6 +184,9 @@ function inside(widget::Widget, r::Integer, c::Integer)
 end
 
 function handle_mouse(widget::Widget, row::Integer, col::Integer)
+    if widget.w isa ElementaryWidgetInternal
+        return nothing
+    end
     for child in widget.w.childs
         if inside(child, row, col)
             handle_mouse(child, row, col)

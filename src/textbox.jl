@@ -10,43 +10,68 @@ struct TextBox <: EditableWidget
         foreground::Color=APP[].w.foreground
     )
         w = ElementaryWidgetInternal(; width=width+2, height=height+2, background, foreground)
-        w.signals[:click] = focus
         v = string2vector(str, height, width)
         text = new(w, v, Ref{Int}(1), Ref{Int}(1))
-        on(text, :up; key=KEY_UP) do
+        on(focus, text, :click)
+        on(text, :up; key=KEY_UP) do text::TextBox
+            width = size(text, 2) - 2
             index = cursor2index(text.y[], text.x[], width)
-            index = findprev(!isequal(' '), text.v, index - width)
-            if index !== nothing  && index >= 1
-                text.y[], text.x[] = index2cursor(index, height, width)
-                redraw(text)
-            end
+            move_cursor(text, index - width)
+            nothing
         end
-        on(text, :down; key=KEY_DOWN) do
+        on(text, :down; key=KEY_DOWN) do text::TextBox
+            width = size(text, 2) - 2
             index = cursor2index(text.y[], text.x[], width)
-            index = findprev(!isequal(' '), text.v, index + width)
-            if index !== nothing  && index <= width * height
-                text.y[], text.x[] = index2cursor(index, height, width)
-                redraw(text)
-            end
+            move_cursor(text, index + width)
+            nothing
         end
-        on(text, :left; key=KEY_LEFT) do
+        on(text, :left; key=KEY_LEFT) do text::TextBox
+            width = size(text, 2) - 2
             index = cursor2index(text.y[], text.x[], width)
-            index = findprev(!isequal(' '), text.v, index - 1)
-            if index !== nothing && index >= 1
-                text.y[], text.x[] = index2cursor(index, height, width)
-                redraw(text)
-            end
+            move_cursor(text, index - 1)
+            nothing
         end
-        on(text, :right; key=KEY_RIGHT) do
+        on(text, :right; key=KEY_RIGHT) do text::TextBox
+            width = size(text, 2) - 2
             index = cursor2index(text.y[], text.x[], width)
-            index = findnext(!isequal(' '), text.v, index + 1)
-            if index !== nothing && index <= width * height
-                text.y[], text.x[] = index2cursor(index, height, width)
-                redraw(text)
+            move_cursor(text, index + 1)
+            nothing
+        end
+        on(text, :keypress) do text::TextBox, input::String
+            char, offset = if input === " "
+                '␣', false
+            elseif input === KEY_ENTER
+                '⮐', false
+            elseif input === KEY_BACKSPACE || input === '\b'
+                '⌫', false
+            elseif input === KEY_DELETE
+                '␡', true
+            elseif iscntrl(input[begin])
+                return nothing
+            else
+                input[begin], false
             end
+            width = size(text, 2)
+            index = cursor2index(text.y[], text.x[], width - 2)
+            insert!(text.v, index, char)
+            process_insert(text, index, offset)
+            redraw(text)
+            nothing
         end
         text
     end
+end
+
+function move_cursor(text::TextBox, index:: Integer)
+    height, width = size(text)
+    height -= 2
+    width -= 2
+    index = findprev(!isequal(' '), text.v, min(max(1, index), width * height))
+    if index !== nothing
+        text.y[], text.x[] = index2cursor(index, height, width)
+        cursor(row(text) + text.y[], col(text) + text.x[])
+    end
+    nothing
 end
 
 function handle_mouse(text::TextBox, row::Integer, col::Integer)
@@ -56,35 +81,24 @@ end
 
 function handle_key(text::TextBox, input::String)
     sig = get(text.w.keys, input, :nothing)
-    if !emit(text, sig)
-        if length(input) === 1
-            normal_key(text, input[begin])
-        elseif text !== APP[]
-            handle_key(text.w.parent[], input)
+    if !emit(text, sig) && !emit(text, :keypress, input)
+        handle_key(text.w.parent[], input)
+    end
+    nothing
+end
+
+function process_insert(text::TextBox, index::Integer, offset::Bool)
+    index = if offset
+        index = findnext(!isequal(' '), text.v, index+2)
+        if index === nothing
+            push!(text.v, '⮐')
+            length(text.v)
+        else
+            index
         end
+    else
+        index + 1
     end
-    nothing
-end
-
-function normal_key(text::TextBox, char::Char)
-    if char === ' '
-        char = '␣'
-    elseif char === '\r'
-        char = '⮐'
-    elseif char === '\x7f'
-        char = '⌫'
-    elseif iscntrl(char)
-        return
-    end
-    width = size(text, 2) - 2
-    index = cursor2index(text.y[], text.x[], width)
-    insert!(text.v, index, char)
-    process(text, index + 1)
-    redraw(text)
-    nothing
-end
-
-function process(text::TextBox, index::Integer)
     height, width = size(text)
     char = text.v[index]
     if char === '⮐'
@@ -134,15 +148,14 @@ function redraw(text::TextBox)
     height, width = size(text)
     start_r = row(text)
     start_c = col(text)
-    screen_box(start_r, start_c, height, width;
-        type=BORDER_LIGHT, style=Style(; bold=has_focus(text), background=text.w.background, foreground=text.w.foreground))
+    style = Style(; bold=has_focus(text), background=text.w.background, foreground=text.w.foreground)
+    screen_box(start_r, start_c, height, width; type=BORDER_LIGHT, style)
     height -= 2
     width -= 2
     for y in 1:height
         for x in 1:width
             index = (y - 1) * width + x
-            screen_char(text.v[index], start_r + y, start_c + x;
-                style=Style(; bold=has_focus(text), background=text.w.background, foreground=text.w.foreground))
+            screen_char(text.v[index], start_r + y, start_c + x; style)
         end
     end
     if has_focus(text)
@@ -151,4 +164,8 @@ function redraw(text::TextBox)
         cursor()
     end
     nothing
+end
+
+function value(text::TextBox)
+    vector2string(text.v)
 end

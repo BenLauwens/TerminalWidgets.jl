@@ -14,16 +14,14 @@ struct CheckBox <: EditableWidget
             str = align_string(str, width - 1, ALIGN_LEFT)
         end
         w = ElementaryWidgetInternal(; width, background, foreground)
-        w.signals[:click] = toggle
-        w.keys["\r"] = :click
-        new(w, Ref{Bool}(v), str)
+        checkbox = new(w, Ref{Bool}(v), str)
+        on(checkbox, :click; key="\r") do checkbox::CheckBox
+            checkbox.v[] = !checkbox.v[]
+            focus(checkbox)
+            nothing
+        end
+        checkbox
     end
-end
-
-function toggle(checkbox::CheckBox)
-    checkbox.v[] = !checkbox.v[]
-    focus(checkbox)
-    nothing
 end
 
 function redraw(checkbox::CheckBox)
@@ -58,11 +56,13 @@ struct MultiSelect <: EditableWidget
         end
         for (index, prev) in enumerate(multi.w.childs)
             next = multi.w.childs[mod(index, rows) + 1]
-            on(prev, :next; key=KEY_DOWN) do
+            on(prev, :next; key=KEY_DOWN) do _::CheckBox
                 focus(next)
+                nothing
             end
-            on(next, :prev; key=KEY_UP) do
+            on(next, :prev; key=KEY_UP) do _::CheckBox
                 focus(prev)
+                nothing
             end
         end
         multi

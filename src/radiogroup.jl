@@ -14,9 +14,19 @@ struct RadioButton <: EditableWidget
             str = align_string(str, width - 1, ALIGN_LEFT)
         end
         w = ElementaryWidgetInternal(; width, background, foreground)
-        w.signals[:click] = select
-        w.keys["\r"] = :click
-        new(w, Ref{Bool}(v), str)
+        radiobutton = new(w, Ref{Bool}(v), str)
+        on(radiobutton, :click; key="\r") do radiobutton::RadioButton
+            for button in radiobutton.w.parent[].w.childs
+                if button !== radiobutton && button.v[]
+                    button.v[] = false
+                    redraw(button)
+                end
+            end
+            radiobutton.v[] = true
+            focus(radiobutton)
+            nothing
+        end
+        radiobutton
     end
 end
 
@@ -24,18 +34,6 @@ function redraw(radiobutton::RadioButton)
     screen_string((radiobutton.v[] ? '◉' : '◌') * radiobutton.str, row(radiobutton), col(radiobutton);
         style=Style(; bold=has_focus(radiobutton), background=radiobutton.w.background, foreground=radiobutton.w.foreground)
     )
-    nothing
-end
-
-function select(radiobutton::RadioButton)
-    for button in radiobutton.w.parent[].w.childs
-        if button !== radiobutton && button.v[]
-            button.v[] = false
-            redraw(button)
-        end
-    end
-    radiobutton.v[] = true
-    focus(radiobutton)
     nothing
 end
 
@@ -64,11 +62,13 @@ struct RadioGroup <: EditableWidget
         end
         for (index, prev) in enumerate(radiogroup.w.childs)
             next = radiogroup.w.childs[mod(index, rows) + 1]
-            on(prev, :next; key=KEY_DOWN) do
+            on(prev, :next; key=KEY_DOWN) do _::RadioButton
                 focus(next)
+                nothing
             end
-            on(next, :prev; key=KEY_UP) do
+            on(next, :prev; key=KEY_UP) do _::RadioButton
                 focus(prev)
+                nothing
             end
         end
         radiogroup
