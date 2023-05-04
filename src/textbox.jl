@@ -15,58 +15,32 @@ struct TextBox <: EditableWidget
         on(focus, text, :click)
         on(text, :up; key=KEY_UP) do text::TextBox
             width = size(text, 2) - 2
-            index = cursor2index(text.y[], text.x[], width)
-            move_cursor(text, index - width)
+            move_cursor(text, -width)
             nothing
         end
         on(text, :down; key=KEY_DOWN) do text::TextBox
             width = size(text, 2) - 2
-            index = cursor2index(text.y[], text.x[], width)
-            move_cursor(text, index + width)
+            move_cursor(text, width)
             nothing
         end
         on(text, :left; key=KEY_LEFT) do text::TextBox
-            width = size(text, 2) - 2
-            index = cursor2index(text.y[], text.x[], width)
-            move_cursor(text, index - 1)
+            move_cursor(text, -1)
             nothing
         end
         on(text, :right; key=KEY_RIGHT) do text::TextBox
-            width = size(text, 2) - 2
-            index = cursor2index(text.y[], text.x[], width)
-            move_cursor(text, index + 1)
-            nothing
-        end
-        on(text, :keypress) do text::TextBox, input::String
-            char, offset = if input === " "
-                '␣', false
-            elseif input === KEY_ENTER
-                '⮐', false
-            elseif input === KEY_BACKSPACE || input === '\b'
-                '⌫', false
-            elseif input === KEY_DELETE
-                '␡', true
-            elseif iscntrl(input[begin])
-                return nothing
-            else
-                input[begin], false
-            end
-            width = size(text, 2)
-            index = cursor2index(text.y[], text.x[], width - 2)
-            insert!(text.v, index, char)
-            process_insert(text, index, offset)
-            redraw(text)
+            move_cursor(text, 1)
             nothing
         end
         text
     end
 end
 
-function move_cursor(text::TextBox, index:: Integer)
+function move_cursor(text::TextBox, offset:: Integer)
     height, width = size(text)
     height -= 2
     width -= 2
-    index = findprev(!isequal(' '), text.v, min(max(1, index), width * height))
+    index = cursor2index(text.y[], text.x[], width)
+    index = findprev(!isequal(' '), text.v, min(max(1, index + offset), width * height))
     if index !== nothing
         text.y[], text.x[] = index2cursor(index, height, width)
         cursor(row(text) + text.y[], col(text) + text.x[])
@@ -81,45 +55,51 @@ end
 
 function handle_key(text::TextBox, input::String)
     sig = get(text.w.keys, input, :nothing)
-    if !emit(text, sig) && !emit(text, :keypress, input)
-        handle_key(text.w.parent[], input)
-    end
-    nothing
-end
-
-function process_insert(text::TextBox, index::Integer, offset::Bool)
-    index = if offset
-        index = findnext(!isequal(' '), text.v, index+2)
+    if !emit(text, sig)
+        char, offset = if input === " "
+            '␣', 1
+        elseif input === KEY_ENTER
+            '⮐', 1
+        elseif input === KEY_BACKSPACE || input === '\b'
+            '⌫', 1
+        elseif input === KEY_DELETE
+            '␡', 2
+        elseif length(input) === 1 && !iscntrl(input[begin])
+            input[begin], 1
+        else
+            handle_key(text.w.parent[], input)
+            return nothing
+        end
+        height, width = size(text)
+        index = cursor2index(text.y[], text.x[], width - 2)
+        insert!(text.v, index, char)
+        index = findnext(!isequal(' '), text.v, index + offset)
         if index === nothing
             push!(text.v, '⮐')
-            length(text.v)
-        else
-            index
+            index = length(text.v)
         end
-    else
-        index + 1
+        char = text.v[index]
+        text.v[index] = if char === '⮐'
+            '⏎'
+        elseif char === '␣'
+            ' '
+        else
+            '█'
+        end
+        str = vector2string(text.v)
+        empty!(text.v)
+        append!(text.v, string2vector(str, height - 2, width - 2))
+        index = if char === '⮐'
+            findfirst(isequal('⏎'), text.v)
+        elseif char === '␣'
+            findfirst(isequal(' '), text.v)
+        else
+            findfirst(isequal('█'), text.v)
+        end
+        text.v[index] = char
+        text.y[], text.x[] = index2cursor(index, height - 2, width - 2)
+        redraw(text)
     end
-    height, width = size(text)
-    char = text.v[index]
-    if char === '⮐'
-        text.v[index] = '⏎'
-    elseif char === '␣'
-        text.v[index] = ' '
-    else
-        text.v[index] = '█'
-    end
-    str = vector2string(text.v)
-    empty!(text.v)
-    append!(text.v, string2vector(str, height - 2, width - 2))
-    index = if char === '⮐'
-        findfirst(isequal('⏎'), text.v)
-    elseif char === '␣'
-        findfirst(isequal(' '), text.v)
-    else
-        findfirst(isequal('█'), text.v)
-    end
-    text.v[index] = char
-    text.y[], text.x[] = index2cursor(index, height - 2, width - 2)
     nothing
 end
 
