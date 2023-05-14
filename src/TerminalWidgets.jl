@@ -10,7 +10,7 @@ export COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_BLUE, COLOR_MAGE
 export COLOR_BRIGHT_BLACK, COLOR_BRIGHT_RED, COLOR_BRIGHT_GREEN, COLOR_BRIGHT_YELLOW, COLOR_BRIGHT_BLUE, COLOR_BRIGHT_MAGENTA, COLOR_BRIGHT_CYAN, COLOR_BRIGHT_WHITE
 export BORDER_LIGHT, BORDER_ROUNDED, BORDER_HEAVY, BORDER_DOUBLE, BORDER_NONE
 export Style, Color, Color256, ColorRGB
-export Widget, Label, Button, CheckBox, MultiSelect, RadioGroup, TextBox
+export Widget, Label, Button, CheckBox, MultiSelect, RadioGroup, TextBox, Menu, MenuItem
 export init, run, add, on, focus
 
 include("utils.jl")
@@ -20,6 +20,7 @@ include("button.jl")
 include("checkbox.jl")
 include("radiogroup.jl")
 include("textbox.jl")
+include("menu.jl")
 include("app.jl")
 
 end

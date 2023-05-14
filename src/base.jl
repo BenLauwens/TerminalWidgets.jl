@@ -147,7 +147,7 @@ function Base.size(widget::Widget, dim::Int=0)
     end
 end
 
-function add(parent::Widget, child::Widget, row::Integer, col::Integer)
+function add(parent::Widget, child::Widget, row::Integer=1, col::Integer=1)
     app = APP[]
     if !isassigned(app.focus) && child isa FocusableWidget
         app.focus[] = child

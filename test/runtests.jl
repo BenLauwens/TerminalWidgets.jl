@@ -8,7 +8,7 @@ let
         exit()
     end
     label = Label("Hello, World"; width=20, align=ALIGN_CENTER)
-    add(label, 1, 1)
+    add(label, 2, 1)
     button1 = Button("The winner takes it all!"; foreground=COLOR_RED) do
         error("My Mistake!")
     end
@@ -61,6 +61,17 @@ let
     on(button1, :prev; key=KEY_SHIFT_TAB) do _
         focus(checkbox)
     end
+    menu = Menu("My Menu")
+    add(menu, 1, 1)
+    menuitem1 = MenuItem("Item 1") do
+        exit()
+    end
+    add(menu, menuitem1)
+    menuitem2 = MenuItem("Item 2") do
+        nothing
+    end
+    add(menu, menuitem2)
+
     try
         run()
     catch err

@@ -25,7 +25,7 @@ function cursor(y::Integer=0, x::Integer=0)
     nothing
 end
 
-function add(child::Widget, row::Integer, col::Integer)
+function add(child::Widget, row::Integer=1, col::Integer=1)
     add(APP[], child, row, col)
 end
 
